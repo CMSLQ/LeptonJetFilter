@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.3 2009/08/04 10:10:03 temple Exp $
+// $Id: LeptonJetFilter.cc,v 1.1 2009/08/21 19:10:27 ferencek Exp $
 //
 //
 
@@ -175,7 +175,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     {
 //       cout << "MUON:" << endl;
 //       cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      if (it->isGood(reco::Muon::GlobalMuonPromptTight) && it->pt()>muPT_)
+      if (it->muonID("GlobalMuonPromptTight") && it->pt()>muPT_)
 	{
 	  ++nmuons;
 	}
