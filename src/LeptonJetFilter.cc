@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.3 2009/08/04 10:10:03 temple Exp $
+// $Id: LeptonJetFilter.cc,v 1.3 2009/09/29 17:44:30 ferencek Exp $
 //
 //
 
@@ -38,7 +38,6 @@
 #include "PhysicsTools/UtilAlgos/interface/TFileService.h"
 
 #include "TH1.h"
-#include "TH2.h"
 
 using namespace edm;
 using namespace std;
@@ -59,9 +58,11 @@ class LeptonJetFilter : public edm::EDFilter {
       // ----------member data ---------------------------
   int muonsMin_, electronsMin_, jetsMin_;
   int muonsMax_, electronsMax_, jetsMax_;
-  double  muPT_, elecPT_, jetPT_, jetEleDeltaR_;
+  double  jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_;
+  bool useMuID_, useElecID_;
+  string muID_, elecID_;
   bool debug_;
-  bool cleanJets_, counteitherleptontype_;
+  bool counteitherleptontype_;
 
   edm::InputTag muLabel_;
   edm::InputTag elecLabel_;
@@ -94,20 +95,27 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
   elecLabel_ = iConfig.getUntrackedParameter<edm::InputTag>("elecLabel",edm::InputTag("cleanLayer1Electrons"));
   jetLabel_  = iConfig.getUntrackedParameter<edm::InputTag>("jetLabel",edm::InputTag("cleanLayer1Jets"));
   
+  jetsMin_ = iConfig.getParameter<int>("jetsMin");
+  jetsMax_ = iConfig.getParameter<int>("jetsMax");
+  jetPT_   = iConfig.getParameter<double>("jetPT");
+  jetEta_  = iConfig.getParameter<double>("jetEta");
+  
   muonsMin_ = iConfig.getParameter<int>("muonsMin");
   muonsMax_ = iConfig.getParameter<int>("muonsMax");
   muPT_     = iConfig.getParameter<double>("muPT");
+  muEta_    = iConfig.getParameter<double>("muEta");
+  useMuID_  = iConfig.getParameter<bool>("useMuID");
+  muID_     = iConfig.getParameter<string>("muID");
   
   electronsMin_ = iConfig.getParameter<int>("electronsMin");
   electronsMax_ = iConfig.getParameter<int>("electronsMax");
   elecPT_       = iConfig.getParameter<double>("elecPT");
-  
-  jetsMin_ = iConfig.getParameter<int>("jetsMin");
-  jetsMax_ = iConfig.getParameter<int>("jetsMax");
-  jetPT_   = iConfig.getParameter<double>("jetPT");
+  elecEta_      = iConfig.getParameter<double>("elecEta");
+  useElecID_    = iConfig.getParameter<bool>("useElecID");
+  elecID_       = iConfig.getParameter<string>("elecID");
 
   debug_   = iConfig.getUntrackedParameter<bool>("debug",false);
-  counteitherleptontype_ = iConfig.getUntrackedParameter<bool>("counteitherleptontype",true);
+  counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
 
   TotalCount=0;
   PassedCount=0;
@@ -137,25 +145,25 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
   ++TotalCount;
   
-  // get PAT jets
-  edm::Handle<std::vector<pat::Jet> > jets;
+  // get jets
+  edm::Handle<edm::View<reco::Candidate> > jets;
   iEvent.getByLabel(jetLabel_, jets);
 
-  // get PAT leptons
-  edm::Handle<std::vector<pat::Electron> > electrons;
+  // get leptons
+  edm::Handle<edm::View<reco::Candidate> > electrons;
   iEvent.getByLabel(elecLabel_, electrons);
 
-  edm::Handle<std::vector<pat::Muon> > muons;
+  edm::Handle<edm::View<reco::Candidate> > muons;
   iEvent.getByLabel(muLabel_, muons);
 
   // Step 1:  Count jets
   int njets=0;
 
-  for (std::vector<pat::Jet>::const_iterator it = jets->begin(); it != jets->end(); ++it)
+  for (edm::View<reco::Candidate>::const_iterator it = jets->begin(); it != jets->end(); ++it)
     { 
 //       cout << "JET:" << endl;
 //       cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl; 
-      if (it->pt()>jetPT_)
+      if (it->pt()>jetPT_ && fabs(it->eta())<jetEta_)
         {
           ++njets;
         }
@@ -170,12 +178,20 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   // Step 2:  Count leptons
   int nmuons=0;
   int nelectrons=0;
-
-  for (std::vector<pat::Muon>::const_iterator it = muons->begin(); it != muons->end();++it)
+  // count muons
+  for (edm::View<reco::Candidate>::const_iterator it = muons->begin(); it != muons->end();++it)
     {
 //       cout << "MUON:" << endl;
 //       cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      if (it->isGood(reco::Muon::GlobalMuonPromptTight) && it->pt()>muPT_)
+      bool passID = true;
+      
+      if (useMuID_) 
+        {
+          const pat::Muon *muon = dynamic_cast<const pat::Muon *>(&*it);
+          if (!(muon->isGood(reco::Muon::GlobalMuonPromptTight))) passID = false;
+        }
+
+      if (it->pt()>muPT_ && fabs(it->eta())<muEta_ && passID)
 	{
 	  ++nmuons;
 	}
@@ -184,11 +200,19 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   if (debug_) cout <<"# muons = "<<nmuons<<endl;
 
   // count electrons
-  for (std::vector<pat::Electron>::const_iterator it = electrons->begin(); it != electrons->end();++it)
+  for (edm::View<reco::Candidate>::const_iterator it = electrons->begin(); it != electrons->end();++it)
     {
 //       cout << "ELECTRON:" << endl;
 //       cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      if (it->electronID("eidTight")>0. && it->pt()>elecPT_)  
+      bool passID = true;
+
+      if (useElecID_) 
+        {
+          const pat::Electron *electron = dynamic_cast<const pat::Electron *>(&*it);
+          if (!(electron->electronID(elecID_)>0.)) passID = false;
+        }
+      
+      if (it->pt()>elecPT_ && fabs(it->eta())<elecEta_ && passID)  
 	{
 	  ++nelectrons;
 	}
