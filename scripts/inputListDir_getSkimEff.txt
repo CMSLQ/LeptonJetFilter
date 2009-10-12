@@ -1,0 +1,10 @@
+/store/user/ferencek/QCD_EMEnriched_Pt20to30/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/QCD_EMEnriched_Pt30to80/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/QCD_EMEnriched_Pt80to170/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/QCD_BCtoE_Pt20to30/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/QCD_BCtoE_Pt30to80/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/QCD_BCtoE_Pt80to170/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/TTbar/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/Wenu/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/Zee/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
+/store/user/ferencek/PhotonJet_Pt15/LQSkim_091005_032528/2ee22982599f527f855b1fb7db3bc7c3/
