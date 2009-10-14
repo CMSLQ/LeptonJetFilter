@@ -26,7 +26,7 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     elecPT       = cms.double(20.),
     elecEta      = cms.double(100.),
     useElecID    = cms.bool(False),
-    elecID       = cms.string("eidTight"),
+    elecID       = cms.string("eidRobustTight"),
 
     debug   = cms.untracked.bool(False),
     # If true, filter is true if either lepton condition met
