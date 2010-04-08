@@ -3,16 +3,10 @@
 <use name=FWCore/ParameterSet>
 <use name=DataFormats/Candidate>
 <use name=DataFormats/PatCandidates>
-<use name=PhysicsTools/UtilAlgos>
+<use name=CommonTools/UtilAlgos>
 <use name=PhysicsTools/CandUtils>
 <use name=FWCore/ServiceRegistry>
 <use name=DataFormats/Provenance>
-
-
 <flags EDM_PLUGIN=1>
 <export>
-   <lib name=AnalysisCodeLeptonJetFilter>
-   <use name=FWCore/Framework>
-   <use name=FWCore/PluginManager>
-   <use name=FWCore/ParameterSet>
 </export>

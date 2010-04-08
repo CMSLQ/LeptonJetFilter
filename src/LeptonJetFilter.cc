@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.2 2009/09/28 00:27:53 ferencek Exp $
+// $Id: LeptonJetFilter.cc,v 1.3 2009/09/29 17:44:30 ferencek Exp $
 //
 //
 
@@ -35,7 +35,7 @@
 #include "DataFormats/PatCandidates/interface/Jet.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "PhysicsTools/UtilAlgos/interface/TFileService.h"
+#include "CommonTools/UtilAlgos/interface/TFileService.h"
 
 #include "TH1.h"
 
@@ -51,7 +51,7 @@ class LeptonJetFilter : public edm::EDFilter {
       ~LeptonJetFilter();
 
    private:
-      virtual void beginJob(const edm::EventSetup&) ;
+      virtual void beginJob() ;
       virtual bool filter(edm::Event&, const edm::EventSetup&);
       virtual void endJob() ;
       
@@ -249,7 +249,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 // ------------ method called once each job just before starting event loop  ------------
 void 
-LeptonJetFilter::beginJob(const edm::EventSetup&)
+LeptonJetFilter::beginJob()
 {
 }
 

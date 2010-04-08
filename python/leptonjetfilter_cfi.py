@@ -2,9 +2,9 @@ import FWCore.ParameterSet.Config as cms
 
 LJFilter = cms.EDFilter('LeptonJetFilter',
     # Specify input collections
-    muLabel = cms.untracked.InputTag("cleanLayer1Muons"),
-    elecLabel = cms.untracked.InputTag("cleanLayer1Electrons"),
-    jetLabel = cms.untracked.InputTag("cleanLayer1Jets"),
+    muLabel = cms.untracked.InputTag("cleanPatMuons"),
+    elecLabel = cms.untracked.InputTag("cleanPatElectrons"),
+    jetLabel = cms.untracked.InputTag("cleanPatJets"),
 
     # Specifiy number of jets
     jetsMin = cms.int32(-1),
