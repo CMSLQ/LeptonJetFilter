@@ -2,9 +2,17 @@ import FWCore.ParameterSet.Config as cms
 
 LJFilter = cms.EDFilter('LeptonJetFilter',
     # Specify input collections
-    muLabel = cms.untracked.InputTag("cleanPatMuons"),
-    elecLabel = cms.untracked.InputTag("cleanPatElectrons"),
-    jetLabel = cms.untracked.InputTag("cleanPatJets"),
+    scLabelEB = cms.InputTag("hybridSuperClusters"),
+    scLabelEE = cms.InputTag("multi5x5SuperClustersWithPreshower"),
+    muLabel = cms.InputTag("cleanPatMuons"),
+    elecLabel = cms.InputTag("cleanPatElectrons"),
+    jetLabel = cms.InputTag("cleanPatJets"),
+
+    # Specifiy number of superclusters
+    scMin = cms.int32(-1),
+    scMax = cms.int32(-1),
+    scET   = cms.double(10.),
+    scEta  = cms.double(100.),
 
     # Specifiy number of jets
     jetsMin = cms.int32(-1),
