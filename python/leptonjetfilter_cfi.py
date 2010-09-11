@@ -13,6 +13,7 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     scMax = cms.int32(-1),
     scET   = cms.double(10.),
     scEta  = cms.double(100.),
+    scHoE  = cms.double(0.05),
 
     # Specifiy number of jets
     jetsMin = cms.int32(-1),

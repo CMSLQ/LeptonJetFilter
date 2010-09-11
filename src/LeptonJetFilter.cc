@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.4 2010/04/08 19:33:56 ferencek Exp $
+// $Id: LeptonJetFilter.cc,v 1.5 2010/07/18 21:06:20 ferencek Exp $
 //
 //
 
@@ -35,6 +35,7 @@
 #include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
+#include "RecoEgamma/EgammaTools/interface/HoECalculator.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -60,7 +61,7 @@ class LeptonJetFilter : public edm::EDFilter {
       // ----------member data ---------------------------
       int scMin_, jetsMin_, muonsMin_, electronsMin_;
       int scMax_, jetsMax_, muonsMax_, electronsMax_;
-      double  scET_, scEta_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_;
+      double  scET_, scEta_, scHoE_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_;
       bool useMuID_, useElecID_;
       string muID_, elecID_;
       bool debug_;
@@ -101,6 +102,7 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
   scMax_ = iConfig.getParameter<int>("scMax");
   scET_   = iConfig.getParameter<double>("scET");
   scEta_  = iConfig.getParameter<double>("scEta");
+  scHoE_  = iConfig.getParameter<double>("scHoE");
 
   jetsMin_ = iConfig.getParameter<int>("jetsMin");
   jetsMax_ = iConfig.getParameter<int>("jetsMax");
@@ -177,7 +179,10 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     {
       if (debug_) cout << "EB SuperCluster:" << endl;
       if (debug_) cout << "ET: " << it->energy()/cosh(it->eta()) << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      if ((it->energy()/cosh(it->eta()))>scET_ && fabs(it->eta())<scEta_)
+      const reco::SuperCluster* sc_pnt = &(*it);
+      HoECalculator calc_HoE; // requires HCAL RecHits that are only available in RECO files
+      double hoe = calc_HoE(sc_pnt,iEvent,iSetup);
+      if ((it->energy()/cosh(it->eta()))>scET_ && fabs(it->eta())<scEta_ && hoe<scHoE_)
         {
           ++nsc;
         }
@@ -186,7 +191,10 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     {
       if (debug_) cout << "EE SuperCluster:" << endl;
       if (debug_) cout << "ET: " << it->energy()/cosh(it->eta()) << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      if ((it->energy()/cosh(it->eta()))>scET_ && fabs(it->eta())<scEta_)
+      const reco::SuperCluster* sc_pnt = &(*it);
+      HoECalculator calc_HoE; // requires HCAL RecHits that are only available in RECO files
+      double hoe = calc_HoE(sc_pnt,iEvent,iSetup);
+      if ((it->energy()/cosh(it->eta()))>scET_ && fabs(it->eta())<scEta_ && hoe<scHoE_)
         {
           ++nsc;
         }
@@ -226,7 +234,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
       bool passID = true;
 
-      if (useMuID_) 
+      if (useMuID_)
         {
           const pat::Muon *muon = dynamic_cast<const pat::Muon *>(&*it);
           if (!(muon->muonID(muID_))) passID = false;
@@ -247,7 +255,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
       bool passID = true;
 
-      if (useElecID_) 
+      if (useElecID_)
         {
           const pat::Electron *electron = dynamic_cast<const pat::Electron *>(&*it);
           if (!(electron->electronID(elecID_)>0.)) passID = false;
