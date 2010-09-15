@@ -11,7 +11,7 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     # Specifiy number of superclusters
     scMin = cms.int32(-1),
     scMax = cms.int32(-1),
-    scET   = cms.double(10.),
+    scET   = cms.double(20.),
     scEta  = cms.double(100.),
     scHoE  = cms.double(0.05),
 
