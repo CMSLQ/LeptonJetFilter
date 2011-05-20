@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.5 2010/07/18 21:06:20 ferencek Exp $
+// $Id: LeptonJetFilter.cc,v 1.6 2010/09/11 04:27:25 ferencek Exp $
 //
 //
 
@@ -36,6 +36,9 @@
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
 #include "RecoEgamma/EgammaTools/interface/HoECalculator.h"
+#include "DataFormats/PatCandidates/interface/Photon.h"
+#include "DataFormats/EgammaCandidates/interface/Photon.h"
+#include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -44,6 +47,8 @@
 
 using namespace edm;
 using namespace std;
+using namespace reco;
+
 //
 // class declaration
 //
@@ -59,15 +64,15 @@ class LeptonJetFilter : public edm::EDFilter {
       virtual void endJob() ;
 
       // ----------member data ---------------------------
-      int scMin_, jetsMin_, muonsMin_, electronsMin_;
-      int scMax_, jetsMax_, muonsMax_, electronsMax_;
-      double  scET_, scEta_, scHoE_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_;
-      bool useMuID_, useElecID_;
-      string muID_, elecID_;
+      int photMin_, jetsMin_, muonsMin_, electronsMin_;
+      int photMax_, jetsMax_, muonsMax_, electronsMax_;
+      double  photET_, photEta_, photHoE_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_;
+      bool useMuID_, useElecID_, usePhotID_;
+      string muID_, elecID_, photID_;
       bool debug_;
       bool counteitherleptontype_;
 
-      edm::InputTag scLabelEB_, scLabelEE_, jetLabel_, muLabel_, elecLabel_;
+      edm::InputTag photLabel_, jetLabel_, muLabel_, elecLabel_;
 
       int TotalCount;
       int PassedCount;
@@ -92,17 +97,18 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
    //now do what ever initialization is needed
 
   // specify labels
-  scLabelEB_  = iConfig.getParameter<edm::InputTag>("scLabelEB");
-  scLabelEE_   = iConfig.getParameter<edm::InputTag>("scLabelEE");
+  photLabel_  = iConfig.getUntrackedParameter<edm::InputTag>("photLabel");
   jetLabel_  = iConfig.getParameter<edm::InputTag>("jetLabel");
   muLabel_   = iConfig.getParameter<edm::InputTag>("muLabel");
   elecLabel_ = iConfig.getParameter<edm::InputTag>("elecLabel");
 
-  scMin_ = iConfig.getParameter<int>("scMin");
-  scMax_ = iConfig.getParameter<int>("scMax");
-  scET_   = iConfig.getParameter<double>("scET");
-  scEta_  = iConfig.getParameter<double>("scEta");
-  scHoE_  = iConfig.getParameter<double>("scHoE");
+  photMin_   = iConfig.getParameter<int>("photMin");
+  photMax_   = iConfig.getParameter<int>("photMax");
+  photET_    = iConfig.getParameter<double>("photET");
+  photEta_   = iConfig.getParameter<double>("photEta");
+  photHoE_   = iConfig.getParameter<double>("photHoE");
+  usePhotID_ = iConfig.getParameter<bool>("usePhotID");
+  photID_    = iConfig.getParameter<string>("photID");
 
   jetsMin_ = iConfig.getParameter<int>("jetsMin");
   jetsMax_ = iConfig.getParameter<int>("jetsMax");
@@ -154,12 +160,9 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
   ++TotalCount;
 
-  // get superclusters
-  edm::Handle<reco::SuperClusterCollection> superClustersEB;
-  iEvent.getByLabel(scLabelEB_, superClustersEB);
-
-  edm::Handle<reco::SuperClusterCollection> superClustersEE;
-  iEvent.getByLabel(scLabelEE_, superClustersEE);
+  // get photons
+  Handle<PhotonCollection> photons;
+  iEvent.getByLabel(photLabel_, photons);
 
   // get jets
   edm::Handle<edm::View<reco::Candidate> > jets;
@@ -172,38 +175,33 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<edm::View<reco::Candidate> > muons;
   iEvent.getByLabel(muLabel_, muons);
 
-  // Step 0:  Count SuperClusters
-  int nsc=0;
 
-  for (reco::SuperClusterCollection::const_iterator it = superClustersEB->begin(); it != superClustersEB->end(); ++it)
+  // Step 0: count photons
+  int nphotons = 0;
+
+  for (PhotonCollection::const_iterator it = photons->begin(); it != photons->end();++it)
     {
-      if (debug_) cout << "EB SuperCluster:" << endl;
-      if (debug_) cout << "ET: " << it->energy()/cosh(it->eta()) << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      const reco::SuperCluster* sc_pnt = &(*it);
-      HoECalculator calc_HoE; // requires HCAL RecHits that are only available in RECO files
-      double hoe = calc_HoE(sc_pnt,iEvent,iSetup);
-      if ((it->energy()/cosh(it->eta()))>scET_ && fabs(it->eta())<scEta_ && hoe<scHoE_)
+      if (debug_) cout << "Photons:" << endl;
+      if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << " HoE: "<<it->hadronicOverEm()<<endl;
+      bool passID = true;
+
+      if (usePhotID_)
         {
-          ++nsc;
+          const pat::Photon *photon = dynamic_cast<const pat::Photon *>(&*it);
+          if (!(photon->photonID(photID_)>0.)) passID = false;
         }
-    }
-  for (reco::SuperClusterCollection::const_iterator it = superClustersEE->begin(); it != superClustersEE->end(); ++it)
-    {
-      if (debug_) cout << "EE SuperCluster:" << endl;
-      if (debug_) cout << "ET: " << it->energy()/cosh(it->eta()) << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      const reco::SuperCluster* sc_pnt = &(*it);
-      HoECalculator calc_HoE; // requires HCAL RecHits that are only available in RECO files
-      double hoe = calc_HoE(sc_pnt,iEvent,iSetup);
-      if ((it->energy()/cosh(it->eta()))>scET_ && fabs(it->eta())<scEta_ && hoe<scHoE_)
+
+      if (it->pt()>photET_ && fabs(it->eta())<photEta_ && passID && it->hadronicOverEm()<photHoE_)
         {
-          ++nsc;
+          ++nphotons;
         }
     }
 
-  if (debug_) cout <<"# SuperClusters = "<<nsc<<endl;
-  // If not enough superclusters found (or too many found), return false
-  if (scMin_>-1 && nsc<scMin_) return false;
-  if (scMax_>-1 && nsc>scMax_) return false;
+  if (debug_) cout <<"# Photons = "<<nphotons<<endl;
+  // If not enough photons found (or too many found), return false
+  if (photMin_>-1 && nphotons<photMin_) return false;
+  if (photMax_>-1 && nphotons>photMax_) return false;
+
 
   // Step 1:  Count jets
   int njets=0;
