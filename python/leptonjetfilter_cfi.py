@@ -3,6 +3,7 @@ import FWCore.ParameterSet.Config as cms
 LJFilter = cms.EDFilter('LeptonJetFilter',
     # Specify input collections
     photLabel = cms.untracked.InputTag("photons"),
+    tauLabel = cms.InputTag("cleanPatTaus"),                        
     muLabel = cms.InputTag("cleanPatMuons"),
     elecLabel = cms.InputTag("cleanPatElectrons"),
     jetLabel = cms.InputTag("cleanPatJets"),
@@ -37,6 +38,14 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     elecEta      = cms.double(100.),
     useElecID    = cms.bool(False),
     elecID       = cms.string("eidRobustTight"),
+
+    # Specify number of taus
+    tausMin  = cms.int32  (  1 ) ,
+    tausMax  = cms.int32  ( -1 ) , 
+    tauPT    = cms.double ( 15. ) , 
+    tauEta   = cms.double ( 100.) , 
+    useTauID = cms.bool ( False ),
+    tauID    = cms.string("leadingPionPtCut") , 
 
     debug   = cms.untracked.bool(False),
     # If true, filter is true if either lepton condition met

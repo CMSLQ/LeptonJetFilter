@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.6 2010/09/11 04:27:25 ferencek Exp $
+// $Id: LeptonJetFilter.cc,v 1.7 2011/05/20 20:15:54 prumerio Exp $
 //
 //
 
@@ -35,6 +35,7 @@
 #include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
+#include "DataFormats/PatCandidates/interface/Tau.h"
 #include "RecoEgamma/EgammaTools/interface/HoECalculator.h"
 #include "DataFormats/PatCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/Photon.h"
@@ -64,15 +65,15 @@ class LeptonJetFilter : public edm::EDFilter {
       virtual void endJob() ;
 
       // ----------member data ---------------------------
-      int photMin_, jetsMin_, muonsMin_, electronsMin_;
-      int photMax_, jetsMax_, muonsMax_, electronsMax_;
-      double  photET_, photEta_, photHoE_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_;
-      bool useMuID_, useElecID_, usePhotID_;
-      string muID_, elecID_, photID_;
+      int photMin_, jetsMin_, muonsMin_, electronsMin_, tausMin_;
+      int photMax_, jetsMax_, muonsMax_, electronsMax_, tausMax_;
+      double  photET_, photEta_, photHoE_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_, tauPT_, tauEta_;
+      bool useMuID_, useElecID_, usePhotID_, useTauID_;
+      string muID_, elecID_, photID_, tauID_;
       bool debug_;
       bool counteitherleptontype_;
 
-      edm::InputTag photLabel_, jetLabel_, muLabel_, elecLabel_;
+      edm::InputTag photLabel_, jetLabel_, tauLabel_, muLabel_, elecLabel_;
 
       int TotalCount;
       int PassedCount;
@@ -99,6 +100,7 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
   // specify labels
   photLabel_  = iConfig.getUntrackedParameter<edm::InputTag>("photLabel");
   jetLabel_  = iConfig.getParameter<edm::InputTag>("jetLabel");
+  tauLabel_  = iConfig.getParameter<edm::InputTag>("tauLabel");
   muLabel_   = iConfig.getParameter<edm::InputTag>("muLabel");
   elecLabel_ = iConfig.getParameter<edm::InputTag>("elecLabel");
 
@@ -128,6 +130,13 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
   elecEta_      = iConfig.getParameter<double>("elecEta");
   useElecID_    = iConfig.getParameter<bool>("useElecID");
   elecID_       = iConfig.getParameter<string>("elecID");
+
+  tausMin_  = iConfig.getParameter<int>("tausMin");
+  tausMax_  = iConfig.getParameter<int>("tausMax");
+  tauPT_    = iConfig.getParameter<double>("tauPT" );
+  tauEta_   = iConfig.getParameter<double>("tauEta") ;
+  useTauID_ = iConfig.getParameter<bool> ("useTauID");
+  tauID_    = iConfig.getParameter<string>("tauID") ;
 
   debug_   = iConfig.getUntrackedParameter<bool>("debug");
   counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
@@ -175,6 +184,8 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<edm::View<reco::Candidate> > muons;
   iEvent.getByLabel(muLabel_, muons);
 
+  edm::Handle<edm::View<reco::Candidate> > taus;
+  iEvent.getByLabel(tauLabel_, taus);
 
   // Step 0: count photons
   int nphotons = 0;
@@ -225,6 +236,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   // Step 2:  Count leptons
   int nmuons=0;
   int nelectrons=0;
+  int ntaus=0;
   // count muons
   for (edm::View<reco::Candidate>::const_iterator it = muons->begin(); it != muons->end();++it)
     {
@@ -267,6 +279,26 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   if (debug_) cout <<"# Electrons = "<<nelectrons<<endl;
 
+  // count taus
+  for (edm::View<reco::Candidate>::const_iterator it = taus->begin(); it != taus->end();++it){
+   
+    if (debug_) cout << "Tau:" << endl;
+    if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
+    bool passID = true;
+
+    if ( useTauID_ ) { 
+      const pat::Tau * tau = dynamic_cast<const pat::Tau*>(&*it);
+      if ( tau->tauID(tauID_) < 0.5 ) passID = false;
+    }
+
+    if (it->pt()>tauPT_ && fabs(it->eta())<tauEta_ && passID) {
+      ++ntaus;
+    }   
+    
+  }
+
+  if (debug_) cout <<"# Tuas = "<<ntaus<<endl;
+
   // If we require both electron and muon condition to be met, check electron here
   if (counteitherleptontype_==false)
     {
@@ -281,11 +313,17 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (muonsMax_>-1 && nmuons>muonsMax_) return false;
     }
 
+  if (counteitherleptontype_==false)
+    {
+      if (tausMin_>-1 && ntaus<tausMin_) return false;
+      if (tausMax_>-1 && ntaus>tausMax_) return false; 
+    }
+
   // Otherwise, only fail cut if neither electron nor muon meet expectations
   if (counteitherleptontype_==true)
     {
-      if ((muonsMin_>-1 && nmuons<muonsMin_) && (electronsMin_>-1 && nelectrons<electronsMin_)) return false;
-      if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_)) return false;
+      if ((muonsMin_>-1 && nmuons<muonsMin_) && (electronsMin_>-1 && nelectrons<electronsMin_) && (tausMin_>-1 && ntaus<tausMin_)) return false;
+      if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_) && (tausMax_>-1 && ntaus>tausMax_)) return false;
     }
 
   ++PassedCount;
