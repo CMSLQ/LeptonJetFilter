@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.7 2011/05/20 20:15:54 prumerio Exp $
+// $Id: LeptonJetFilter.cc,v 1.8 2011/07/15 17:36:11 eberry Exp $
 //
 //
 
@@ -70,7 +70,7 @@ class LeptonJetFilter : public edm::EDFilter {
       double  photET_, photEta_, photHoE_, jetPT_, jetEta_, muPT_, muEta_, elecPT_, elecEta_, tauPT_, tauEta_;
       bool useMuID_, useElecID_, usePhotID_, useTauID_;
       string muID_, elecID_, photID_, tauID_;
-      bool debug_;
+      bool debug_, allEventsPassFilter_;
       bool counteitherleptontype_;
 
       edm::InputTag photLabel_, jetLabel_, tauLabel_, muLabel_, elecLabel_;
@@ -138,6 +138,7 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
   useTauID_ = iConfig.getParameter<bool> ("useTauID");
   tauID_    = iConfig.getParameter<string>("tauID") ;
 
+  allEventsPassFilter_ = iConfig.getUntrackedParameter<bool>("allEventsPassFilter");
   debug_   = iConfig.getUntrackedParameter<bool>("debug");
   counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
 
@@ -168,6 +169,13 @@ bool
 LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
   ++TotalCount;
+
+  if( allEventsPassFilter_ )
+    {
+      ++PassedCount;
+      if (debug_) cout <<"PASSED!"<<endl;
+      return true;
+    }
 
   // get photons
   Handle<PhotonCollection> photons;
