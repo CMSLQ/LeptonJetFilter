@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.9 2011/08/31 20:49:23 santanas Exp $
+// $Id: LeptonJetFilter.cc,v 1.10 2012/09/17 21:45:35 darinb Exp $
 //
 //
 
@@ -359,7 +359,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  if (ptleade > 20 && ptleadjet>20) keepevent=true;
 	  if (ptleadmu > 15 && ptleadtau>20 && ptleadjet>20) keepevent=true;
 	  if (ptleadmu > 35 or ptleade > 35 or ptleadtau>35) keepevent=true;
-    std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+          //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
 	  if (keepevent==false) return false;
 	  }
 
