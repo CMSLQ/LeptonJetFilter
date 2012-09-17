@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.8 2011/07/15 17:36:11 eberry Exp $
+// $Id: LeptonJetFilter.cc,v 1.9 2011/08/31 20:49:23 santanas Exp $
 //
 //
 
@@ -72,6 +72,7 @@ class LeptonJetFilter : public edm::EDFilter {
       string muID_, elecID_, photID_, tauID_;
       bool debug_, allEventsPassFilter_;
       bool counteitherleptontype_;
+      bool customfilterEMuTauJet2012_;
 
       edm::InputTag photLabel_, jetLabel_, tauLabel_, muLabel_, elecLabel_;
 
@@ -141,6 +142,8 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
   allEventsPassFilter_ = iConfig.getUntrackedParameter<bool>("allEventsPassFilter");
   debug_   = iConfig.getUntrackedParameter<bool>("debug");
   counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
+  customfilterEMuTauJet2012_ = iConfig.getParameter<bool>("customfilterEMuTauJet2012");
+
 
   TotalCount=0;
   PassedCount=0;
@@ -224,6 +227,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   // Step 1:  Count jets
   int njets=0;
+  float ptleadjet=0.0;
 
   for (edm::View<reco::Candidate>::const_iterator it = jets->begin(); it != jets->end(); ++it)
     {
@@ -232,6 +236,8 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (it->pt()>jetPT_ && fabs(it->eta())<jetEta_)
         {
           ++njets;
+		  if (it->pt() > ptleadjet) ptleadjet=it->pt();
+          
         }
     }
 
@@ -245,6 +251,10 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   int nmuons=0;
   int nelectrons=0;
   int ntaus=0;
+  float ptleadmu=0.0;
+  float ptleade=0.0;
+  float ptleadtau=0.0;
+
   // count muons
   for (edm::View<reco::Candidate>::const_iterator it = muons->begin(); it != muons->end();++it)
     {
@@ -261,6 +271,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (it->pt()>muPT_ && fabs(it->eta())<muEta_ && passID)
         {
           ++nmuons;
+		  if (it->pt() > ptleadmu) ptleadmu=it->pt();
         }
     }
 
@@ -282,6 +293,8 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (it->pt()>elecPT_ && fabs(it->eta())<elecEta_ && passID)
         {
           ++nelectrons;
+   		  if (it->pt() > ptleade) ptleade=it->pt();
+
         }
     }
 
@@ -301,41 +314,59 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     if (it->pt()>tauPT_ && fabs(it->eta())<tauEta_ && passID) {
       ++ntaus;
+	  if (it->pt() > ptleadtau) ptleadtau=it->pt();
+      
     }   
     
   }
 
   if (debug_) cout <<"# Tuas = "<<ntaus<<endl;
 
-  // If we require both electron and muon condition to be met, check electron here
-  if (counteitherleptontype_==false)
+  if (customfilterEMuTauJet2012_==false)
     {
-      if (electronsMin_>-1 && nelectrons<electronsMin_) return false;
-      if (electronsMax_>-1 && nelectrons>electronsMax_) return false;
-    }
 
-  // If we require both electron and muon condition to be met, check muon here
-  if (counteitherleptontype_==false)
-    {
-      if (muonsMin_>-1 && nmuons<muonsMin_) return false;
-      if (muonsMax_>-1 && nmuons>muonsMax_) return false;
-    }
+    // If we require both electron and muon condition to be met, check electron here
+    if (counteitherleptontype_==false)
+      {
+        if (electronsMin_>-1 && nelectrons<electronsMin_) return false;
+        if (electronsMax_>-1 && nelectrons>electronsMax_) return false;
+      }
 
-  if (counteitherleptontype_==false)
-    {
-      if (tausMin_>-1 && ntaus<tausMin_) return false;
-      if (tausMax_>-1 && ntaus>tausMax_) return false; 
-    }
+    // If we require both electron and muon condition to be met, check muon here
+    if (counteitherleptontype_==false)
+      {
+        if (muonsMin_>-1 && nmuons<muonsMin_) return false;
+        if (muonsMax_>-1 && nmuons>muonsMax_) return false;
+      }
 
-  // Otherwise, only fail cut if neither electron nor muon meet expectations
-  if (counteitherleptontype_==true)
+    if (counteitherleptontype_==false)
+      {
+        if (tausMin_>-1 && ntaus<tausMin_) return false;
+        if (tausMax_>-1 && ntaus>tausMax_) return false; 
+      }
+
+    // Otherwise, only fail cut if neither electron nor muon meet expectations
+    if (counteitherleptontype_==true)
+      {
+        if ((muonsMin_>-1 && nmuons<muonsMin_) && (electronsMin_>-1 && nelectrons<electronsMin_) && (tausMin_>-1 && ntaus<tausMin_)) return false;
+        if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_) && (tausMax_>-1 && ntaus>tausMax_)) return false;
+      }
+    }  
+
+  if (customfilterEMuTauJet2012_==true)
     {
-      if ((muonsMin_>-1 && nmuons<muonsMin_) && (electronsMin_>-1 && nelectrons<electronsMin_) && (tausMin_>-1 && ntaus<tausMin_)) return false;
-      if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_) && (tausMax_>-1 && ntaus>tausMax_)) return false;
-    }
+	  bool keepevent = false;
+	  if (ptleade > 20 && ptleadjet>20) keepevent=true;
+	  if (ptleadmu > 15 && ptleadtau>20 && ptleadjet>20) keepevent=true;
+	  if (ptleadmu > 35 or ptleade > 35 or ptleadtau>35) keepevent=true;
+    std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+	  if (keepevent==false) return false;
+	  }
 
   ++PassedCount;
   if (debug_) cout <<"PASSED!"<<endl;
+  // std::cout<<"KEPT"<<std::endl;
+
    return true;
 }
 
