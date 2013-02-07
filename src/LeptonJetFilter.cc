@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.12 2012/09/25 19:15:46 hsaka Exp $
+// $Id: LeptonJetFilter.cc,v 1.13 2012/10/04 17:05:46 eberry Exp $
 //
 //
 
@@ -252,14 +252,14 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   int nelectrons=0;
   int ntaus=0;
   float ptleadmu=0.0;
+  float ptlead2mu=0.0;
   float ptleade=0.0;
   float ptleadtau=0.0;
 
   // count muons
   for (edm::View<reco::Candidate>::const_iterator it = muons->begin(); it != muons->end();++it)
     {
-      if (debug_) cout << "Muon:" << endl;
-      if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
+      if (debug_) cout << "Muon pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
       bool passID = true;
 
       if (useMuID_)
@@ -271,9 +271,13 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (it->pt()>muPT_ && fabs(it->eta())<muEta_ && passID)
         {
           ++nmuons;
-		  if (it->pt() > ptleadmu) ptleadmu=it->pt();
+	  // Object Collections are always stored in descending Pt order //
+	  if( nmuons == 1 ) ptleadmu=it->pt(); 
+	  if( nmuons == 2 ) ptlead2mu=it->pt();
         }
     }
+  if (debug_) cout <<"LeadMuonPt = "<<ptleadmu<<endl;
+  if (debug_) cout <<"Lead2MuonPt = "<<ptlead2mu<<endl;
 
   if (debug_) cout <<"# Muons = "<<nmuons<<endl;
 
@@ -320,7 +324,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     
   }
 
-  if (debug_) cout <<"# Tuas = "<<ntaus<<endl;
+  if (debug_) cout <<"# Taus = "<<ntaus<<endl;
 
   if (customfilterEMuTauJet2012_==false)
     {
@@ -356,7 +360,8 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   if (customfilterEMuTauJet2012_==true)
     {
 	  bool keepevent = false;
-	  if (ptleadmu > 15 && ptleadtau>20 && ptleadjet>20) keepevent=true;
+	  if (ptleadmu > 20 && ptleadtau>20 && ptleadjet>35) keepevent=true;
+	  if (ptleadmu > 20 && ptlead2mu>10 && ptleadjet>35) keepevent=true;
 	  if (ptleadmu > 35 || ptleade > 35 || ptleadtau>35) keepevent=true;
           //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
 	  if (keepevent==false) return false;
