@@ -13,7 +13,7 @@
 //
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
-// $Id: LeptonJetFilter.cc,v 1.13 2012/10/04 17:05:46 eberry Exp $
+// $Id: LeptonJetFilter.cc,v 1.14 2013/02/07 03:46:09 hsaka Exp $
 //
 //
 
@@ -255,6 +255,9 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   float ptlead2mu=0.0;
   float ptleade=0.0;
   float ptleadtau=0.0;
+  
+  int sumMuonCharge=0;//for same-sign muon pair requirement.
+  bool isSameSignMuon_=false;
 
   // count muons
   for (edm::View<reco::Candidate>::const_iterator it = muons->begin(); it != muons->end();++it)
@@ -274,7 +277,9 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  // Object Collections are always stored in descending Pt order //
 	  if( nmuons == 1 ) ptleadmu=it->pt(); 
 	  if( nmuons == 2 ) ptlead2mu=it->pt();
+	  sumMuonCharge+=it->charge();
         }
+      if( nmuons>2 || ( nmuons==2 && fabs(sumMuonCharge)==2 ) ) isSameSignMuon_=true;
     }
   if (debug_) cout <<"LeadMuonPt = "<<ptleadmu<<endl;
   if (debug_) cout <<"Lead2MuonPt = "<<ptlead2mu<<endl;
@@ -356,22 +361,23 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
         if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_) && (tausMax_>-1 && ntaus>tausMax_)) return false;
       }
     }  
-
+  
   if (customfilterEMuTauJet2012_==true)
     {
-	  bool keepevent = false;
-	  if (ptleadmu > 20 && ptleadtau>20 && ptleadjet>35) keepevent=true;
-	  if (ptleadmu > 20 && ptlead2mu>10 && ptleadjet>35) keepevent=true;
-	  if (ptleadmu > 35 || ptleade > 35 || ptleadtau>35) keepevent=true;
-          //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
-	  if (keepevent==false) return false;
-	  }
-
+      bool keepevent = false;
+      if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
+      if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
+      if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
+      if ( ptleadmu > 43 || ptleade > 40 ) keepevent=true;
+      //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+      if (keepevent==false) return false;
+    }
+  
   ++PassedCount;
   if (debug_) cout <<"PASSED!"<<endl;
   // std::cout<<"KEPT"<<std::endl;
-
-   return true;
+  
+  return true;
 }
 
 // ------------ method called once each job just before starting event loop  ------------
