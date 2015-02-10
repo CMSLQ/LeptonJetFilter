@@ -14,6 +14,7 @@
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
 // $Id: LeptonJetFilter.cc,v 1.14 2013/02/07 03:46:09 hsaka Exp $
+//         Modified February 10, 2015; Seth I. Cooper
 //
 //
 
@@ -181,43 +182,44 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     }
 
   // get photons
-  Handle<PhotonCollection> photons;
+  Handle<pat::PhotonCollection> photons;
   iEvent.getByLabel(photLabel_, photons);
 
   // get jets
-  edm::Handle<edm::View<reco::Candidate> > jets;
+  edm::Handle<pat::JetCollection> jets;
   iEvent.getByLabel(jetLabel_, jets);
 
   // get leptons
-  edm::Handle<edm::View<reco::Candidate> > electrons;
+  edm::Handle<pat::ElectronCollection> electrons;
   iEvent.getByLabel(elecLabel_, electrons);
 
-  edm::Handle<edm::View<reco::Candidate> > muons;
+  edm::Handle<pat::MuonCollection > muons;
   iEvent.getByLabel(muLabel_, muons);
 
-  edm::Handle<edm::View<reco::Candidate> > taus;
+  edm::Handle<pat::TauCollection > taus;
   iEvent.getByLabel(tauLabel_, taus);
 
   // Step 0: count photons
   int nphotons = 0;
 
-  for (PhotonCollection::const_iterator it = photons->begin(); it != photons->end();++it)
+  for(const pat::Photon &pho : *photons)
+  {
+    if (debug_) cout << "Photons:" << endl;
+    if (debug_) cout << "pT: " << pho.pt() << " eta: " <<  pho.eta() << " phi: " <<  pho.phi() << " HoE: " 
+      << pho.hadronicOverEm() <<endl;
+    bool passID = true;
+
+    if(usePhotID_)
     {
-      if (debug_) cout << "Photons:" << endl;
-      if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << " HoE: "<<it->hadronicOverEm()<<endl;
-      bool passID = true;
-
-      if (usePhotID_)
-        {
-          const pat::Photon *photon = dynamic_cast<const pat::Photon *>(&*it);
-          if (!(photon->photonID(photID_)>0.)) passID = false;
-        }
-
-      if (it->pt()>photET_ && fabs(it->eta())<photEta_ && passID && it->hadronicOverEm()<photHoE_)
-        {
-          ++nphotons;
-        }
+      if (!(pho.photonID(photID_)>0.))
+        passID = false;
     }
+
+    if(pho.pt()>photET_ && fabs(pho.eta())<photEta_ && passID && pho.hadronicOverEm()<photHoE_)
+    {
+      ++nphotons;
+    }
+  }
 
   if (debug_) cout <<"# Photons = "<<nphotons<<endl;
   // If not enough photons found (or too many found), return false
@@ -229,17 +231,17 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   int njets=0;
   float ptleadjet=0.0;
 
-  for (edm::View<reco::Candidate>::const_iterator it = jets->begin(); it != jets->end(); ++it)
+  for(const pat::Jet &jet : *jets)
+  {
+    if(debug_) cout << "Jet:" << endl;
+    if(debug_) cout << "pT: " << jet.pt() << " eta: " <<  jet.eta() << " phi: " <<  jet.phi() << endl;
+    if(jet.pt()>jetPT_ && fabs(jet.eta())<jetEta_)
     {
-      if (debug_) cout << "Jet:" << endl;
-      if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      if (it->pt()>jetPT_ && fabs(it->eta())<jetEta_)
-        {
-          ++njets;
-		  if (it->pt() > ptleadjet) ptleadjet=it->pt();
-          
-        }
+      ++njets;
+      if(jet.pt() > ptleadjet)
+        ptleadjet=jet.pt();
     }
+  }
 
 
   if (debug_) cout <<"# Jets = "<<njets<<endl;
@@ -260,118 +262,118 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   bool isSameSignMuon_=false;
 
   // count muons
-  for (edm::View<reco::Candidate>::const_iterator it = muons->begin(); it != muons->end();++it)
+  for(const pat::Muon &mu : *muons)
+  {
+    if (debug_) cout << "Muon pT: " << mu.pt() << " eta: " <<  mu.eta() << " phi: " <<  mu.phi() << endl;
+    bool passID = true;
+
+    if (useMuID_)
     {
-      if (debug_) cout << "Muon pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      bool passID = true;
-
-      if (useMuID_)
-        {
-          const pat::Muon *muon = dynamic_cast<const pat::Muon *>(&*it);
-          if (!(muon->muonID(muID_))) passID = false;
-        }
-
-      if (it->pt()>muPT_ && fabs(it->eta())<muEta_ && passID)
-        {
-          ++nmuons;
-	  // Object Collections are always stored in descending Pt order //
-	  if( nmuons == 1 ) ptleadmu=it->pt(); 
-	  if( nmuons == 2 ) ptlead2mu=it->pt();
-	  sumMuonCharge+=it->charge();
-        }
-      if( nmuons>2 || ( nmuons==2 && fabs(sumMuonCharge)==2 ) ) isSameSignMuon_=true;
+      if(!(mu.muonID(muID_)))
+        passID = false;
     }
+
+    if (mu.pt()>muPT_ && fabs(mu.eta())<muEta_ && passID)
+    {
+      ++nmuons;
+      // Object Collections are always stored in descending Pt order //
+      if( nmuons == 1 ) ptleadmu=mu.pt(); 
+      if( nmuons == 2 ) ptlead2mu=mu.pt();
+      sumMuonCharge+=mu.charge();
+    }
+    if( nmuons>2 || ( nmuons==2 && fabs(sumMuonCharge)==2 ) )
+      isSameSignMuon_=true;
+  }
   if (debug_) cout <<"LeadMuonPt = "<<ptleadmu<<endl;
   if (debug_) cout <<"Lead2MuonPt = "<<ptlead2mu<<endl;
-
   if (debug_) cout <<"# Muons = "<<nmuons<<endl;
 
   // count electrons
-  for (edm::View<reco::Candidate>::const_iterator it = electrons->begin(); it != electrons->end();++it)
+  for(const pat::Electron &elec : *electrons)
+  {
+    if (debug_) cout << "Electron:" << endl;
+    if (debug_) cout << "pT: " << elec.pt() << " eta: " <<  elec.eta() << " phi: " <<  elec.phi() << endl;
+    bool passID = true;
+
+    if (useElecID_)
     {
-      if (debug_) cout << "Electron:" << endl;
-      if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
-      bool passID = true;
-
-      if (useElecID_)
-        {
-          const pat::Electron *electron = dynamic_cast<const pat::Electron *>(&*it);
-          if (!(electron->electronID(elecID_)>0.)) passID = false;
-        }
-
-      if (it->pt()>elecPT_ && fabs(it->eta())<elecEta_ && passID)
-        {
-          ++nelectrons;
-   		  if (it->pt() > ptleade) ptleade=it->pt();
-
-        }
+      if(!(elec.electronID(elecID_)>0.))
+        passID = false;
     }
 
+    if (elec.pt()>elecPT_ && fabs(elec.eta())<elecEta_ && passID)
+    {
+      ++nelectrons;
+      if (elec.pt() > ptleade)
+        ptleade=elec.pt();
+
+    }
+  }
   if (debug_) cout <<"# Electrons = "<<nelectrons<<endl;
 
   // count taus
-  for (edm::View<reco::Candidate>::const_iterator it = taus->begin(); it != taus->end();++it){
-   
+  for(const pat::Tau &tau : *taus)
+  {
     if (debug_) cout << "Tau:" << endl;
-    if (debug_) cout << "pT: " << it->pt() << " eta: " <<  it->eta() << " phi: " <<  it->phi() << endl;
+    if (debug_) cout << "pT: " << tau.pt() << " eta: " <<  tau.eta() << " phi: " <<  tau.phi() << endl;
     bool passID = true;
 
-    if ( useTauID_ ) { 
-      const pat::Tau * tau = dynamic_cast<const pat::Tau*>(&*it);
-      if ( tau->tauID(tauID_) < 0.5 ) passID = false;
+    if ( useTauID_ )
+    { 
+      if (tau.tauID(tauID_) < 0.5 )
+        passID = false;
     }
 
-    if (it->pt()>tauPT_ && fabs(it->eta())<tauEta_ && passID) {
+    if (tau.pt()>tauPT_ && fabs(tau.eta())<tauEta_ && passID)
+    {
       ++ntaus;
-	  if (it->pt() > ptleadtau) ptleadtau=it->pt();
-      
+      if (tau.pt() > ptleadtau)
+        ptleadtau=tau.pt();
     }   
-    
-  }
 
+  }
   if (debug_) cout <<"# Taus = "<<ntaus<<endl;
 
   if (customfilterEMuTauJet2012_==false)
-    {
-
+  {
     // If we require both electron and muon condition to be met, check electron here
     if (counteitherleptontype_==false)
-      {
-        if (electronsMin_>-1 && nelectrons<electronsMin_) return false;
-        if (electronsMax_>-1 && nelectrons>electronsMax_) return false;
-      }
+    {
+      if (electronsMin_>-1 && nelectrons<electronsMin_) return false;
+      if (electronsMax_>-1 && nelectrons>electronsMax_) return false;
+    }
 
     // If we require both electron and muon condition to be met, check muon here
     if (counteitherleptontype_==false)
-      {
-        if (muonsMin_>-1 && nmuons<muonsMin_) return false;
-        if (muonsMax_>-1 && nmuons>muonsMax_) return false;
-      }
+    {
+      if (muonsMin_>-1 && nmuons<muonsMin_) return false;
+      if (muonsMax_>-1 && nmuons>muonsMax_) return false;
+    }
 
     if (counteitherleptontype_==false)
-      {
-        if (tausMin_>-1 && ntaus<tausMin_) return false;
-        if (tausMax_>-1 && ntaus>tausMax_) return false; 
-      }
+    {
+      if (tausMin_>-1 && ntaus<tausMin_) return false;
+      if (tausMax_>-1 && ntaus>tausMax_) return false; 
+    }
 
     // Otherwise, only fail cut if neither electron nor muon meet expectations
     if (counteitherleptontype_==true)
-      {
-        if ((muonsMin_>-1 && nmuons<muonsMin_) && (electronsMin_>-1 && nelectrons<electronsMin_) && (tausMin_>-1 && ntaus<tausMin_)) return false;
-        if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_) && (tausMax_>-1 && ntaus>tausMax_)) return false;
-      }
-    }  
-  
-  if (customfilterEMuTauJet2012_==true)
     {
-      bool keepevent = false;
-      if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
-      if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
-      if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
-      if ( ptleadmu > 43 || ptleade > 40 ) keepevent=true;
-      //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
-      if (keepevent==false) return false;
+      if ((muonsMin_>-1 && nmuons<muonsMin_) && (electronsMin_>-1 && nelectrons<electronsMin_) && (tausMin_>-1 && ntaus<tausMin_)) return false;
+      if ((muonsMax_>-1 && nmuons>muonsMax_) && (electronsMax_>-1 && nelectrons>electronsMax_) && (tausMax_>-1 && ntaus>tausMax_)) return false;
     }
+  }  
+
+  if (customfilterEMuTauJet2012_==true)
+  {
+    bool keepevent = false;
+    if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
+    if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
+    if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
+    if ( ptleadmu > 43 || ptleade > 40 ) keepevent=true;
+    //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+    if (keepevent==false) return false;
+  }
   
   ++PassedCount;
   if (debug_) cout <<"PASSED!"<<endl;
