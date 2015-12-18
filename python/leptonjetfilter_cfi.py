@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 LJFilter = cms.EDFilter('LeptonJetFilter',
     # Specify input collections
-    photLabel = cms.untracked.InputTag("slimmedPhotons"),
+    photLabel = cms.InputTag("slimmedPhotons"),
     tauLabel = cms.InputTag("slimmedTaus"),
     muLabel = cms.InputTag("slimmedMuons"),
     elecLabel = cms.InputTag("slimmedElectrons"),

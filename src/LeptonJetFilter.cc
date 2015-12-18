@@ -75,7 +75,11 @@ class LeptonJetFilter : public edm::EDFilter {
       bool counteitherleptontype_;
       bool customfilterEMuTauJet2012_;
 
-      edm::InputTag photLabel_, jetLabel_, tauLabel_, muLabel_, elecLabel_;
+      edm::EDGetTokenT<pat::PhotonCollection>   photonCollectionToken_;
+      edm::EDGetTokenT<pat::JetCollection>      jetCollectionToken_;
+      edm::EDGetTokenT<pat::TauCollection>      tauCollectionToken_;
+      edm::EDGetTokenT<pat::MuonCollection>     muonCollectionToken_;
+      edm::EDGetTokenT<pat::ElectronCollection> electronCollectionToken_;
 
       int TotalCount;
       int PassedCount;
@@ -95,16 +99,15 @@ class LeptonJetFilter : public edm::EDFilter {
 //
 // constructors and destructor
 //
-LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig)
+LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig) :
+  photonCollectionToken_  (consumes<pat::PhotonCollection >(iConfig.getParameter<edm::InputTag>("photLabel"))),
+  jetCollectionToken_  (consumes<pat::JetCollection >(iConfig.getParameter<edm::InputTag>("jetLabel"))),
+  tauCollectionToken_  (consumes<pat::TauCollection >(iConfig.getParameter<edm::InputTag>("tauLabel"))),
+  muonCollectionToken_  (consumes<pat::MuonCollection >(iConfig.getParameter<edm::InputTag>("muLabel"))),
+  electronCollectionToken_  (consumes<pat::ElectronCollection >(iConfig.getParameter<edm::InputTag>("elecLabel")))
 {
    //now do what ever initialization is needed
 
-  // specify labels
-  photLabel_  = iConfig.getUntrackedParameter<edm::InputTag>("photLabel");
-  jetLabel_  = iConfig.getParameter<edm::InputTag>("jetLabel");
-  tauLabel_  = iConfig.getParameter<edm::InputTag>("tauLabel");
-  muLabel_   = iConfig.getParameter<edm::InputTag>("muLabel");
-  elecLabel_ = iConfig.getParameter<edm::InputTag>("elecLabel");
 
   photMin_   = iConfig.getParameter<int>("photMin");
   photMax_   = iConfig.getParameter<int>("photMax");
@@ -183,21 +186,21 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   // get photons
   Handle<pat::PhotonCollection> photons;
-  iEvent.getByLabel(photLabel_, photons);
+  iEvent.getByToken(photonCollectionToken_,photons);
 
   // get jets
   edm::Handle<pat::JetCollection> jets;
-  iEvent.getByLabel(jetLabel_, jets);
+  iEvent.getByToken(jetCollectionToken_, jets);
 
   // get leptons
   edm::Handle<pat::ElectronCollection> electrons;
-  iEvent.getByLabel(elecLabel_, electrons);
+  iEvent.getByToken(electronCollectionToken_, electrons);
 
   edm::Handle<pat::MuonCollection > muons;
-  iEvent.getByLabel(muLabel_, muons);
+  iEvent.getByToken(muonCollectionToken_, muons);
 
   edm::Handle<pat::TauCollection > taus;
-  iEvent.getByLabel(tauLabel_, taus);
+  iEvent.getByToken(tauCollectionToken_, taus);
 
   // Step 0: count photons
   int nphotons = 0;
