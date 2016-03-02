@@ -41,6 +41,7 @@
 #include "DataFormats/PatCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
+#include "SimDataFormats/GeneratorProducts/interface/LHEEventProduct.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -80,9 +81,11 @@ class LeptonJetFilter : public edm::EDFilter {
       edm::EDGetTokenT<pat::TauCollection>      tauCollectionToken_;
       edm::EDGetTokenT<pat::MuonCollection>     muonCollectionToken_;
       edm::EDGetTokenT<pat::ElectronCollection> electronCollectionToken_;
+      edm::EDGetTokenT<LHEEventProduct>    lheEventProductToken_;
 
       int TotalCount;
       int PassedCount;
+      int SumOfAMCAtNLOWeights;
 
       edm::Service<TFileService> histServ;
       TH1I* hCount;
@@ -148,13 +151,16 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig) :
   counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
   customfilterEMuTauJet2012_ = iConfig.getParameter<bool>("customfilterEMuTauJet2012");
 
+  lheEventProductToken_ = consumes<LHEEventProduct>(edm::InputTag("externalLHEProducer"));
 
   TotalCount=0;
   PassedCount=0;
+  SumOfAMCAtNLOWeights=0;
   TFileDirectory COUNT=histServ->mkdir("EventCount");
-  hCount=COUNT.make<TH1I>("EventCounter","Event Counter",2,-0.5,1.5);
+  hCount=COUNT.make<TH1I>("EventCounter","Event Counter",3,-0.5,2.5);
   hCount->GetXaxis()->SetBinLabel(1,"all events");
   hCount->GetXaxis()->SetBinLabel(2,"passed");
+  hCount->GetXaxis()->SetBinLabel(3,"sumOfAmcAtNLOWeights");
 }
 
 
@@ -183,6 +189,18 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if (debug_) cout <<"PASSED!"<<endl;
       return true;
     }
+
+  // keep all amc@NLO weights from LHE
+  edm::Handle<LHEEventProduct> EvtHandle;
+  iEvent.getByToken( lheEventProductToken_ , EvtHandle );
+
+  //Non-madgraph samples may not have this information, if so, skip
+  if (EvtHandle.isValid())
+  {
+    //Powheg samples have valid EvtHandle but seg fault when trying to access weights, so skip if the weights vector is empty
+    if (EvtHandle->weights().size()>0)
+      EvtHandle->weights()[0].wgt < 0 ? SumOfAMCAtNLOWeights-=1. : SumOfAMCAtNLOWeights+=1.;
+  }
 
   // get photons
   Handle<pat::PhotonCollection> photons;
@@ -378,6 +396,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     if (keepevent==false) return false;
   }
   
+
   ++PassedCount;
   if (debug_) cout <<"PASSED!"<<endl;
   // std::cout<<"KEPT"<<std::endl;
@@ -396,7 +415,8 @@ void
 LeptonJetFilter::endJob() {
   hCount->SetBinContent(1,TotalCount);
   hCount->SetBinContent(2,PassedCount);
-  cout <<"Total events = "<<TotalCount<<"  Events Passed = "<<PassedCount<<endl;
+  hCount->SetBinContent(3,SumOfAMCAtNLOWeights);
+  cout <<"Total events = "<<TotalCount<<"  Events Passed = "<<PassedCount<<"  Sum of amcatnlo weights = "<<SumOfAMCAtNLOWeights<<endl;
 }
 
 //define this as a plug-in
