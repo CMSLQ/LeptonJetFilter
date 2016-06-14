@@ -75,6 +75,7 @@ class LeptonJetFilter : public edm::EDFilter {
       bool debug_, allEventsPassFilter_;
       bool counteitherleptontype_;
       bool customfilterEMuTauJet2012_;
+      bool customfilterEMuTauJet2016_;
 
       edm::EDGetTokenT<pat::PhotonCollection>   photonCollectionToken_;
       edm::EDGetTokenT<pat::JetCollection>      jetCollectionToken_;
@@ -150,6 +151,7 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig) :
   debug_   = iConfig.getUntrackedParameter<bool>("debug");
   counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
   customfilterEMuTauJet2012_ = iConfig.getParameter<bool>("customfilterEMuTauJet2012");
+  customfilterEMuTauJet2016_ = iConfig.getParameter<bool>("customfilterEMuTauJet2016");
 
   lheEventProductToken_ = consumes<LHEEventProduct>(edm::InputTag("externalLHEProducer"));
 
@@ -277,6 +279,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   float ptleadmu=0.0;
   float ptlead2mu=0.0;
   float ptleade=0.0;
+  float ptlead2e=0.0;
   float ptleadtau=0.0;
   
   int sumMuonCharge=0;//for same-sign muon pair requirement.
@@ -325,9 +328,11 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     if (elec.pt()>elecPT_ && fabs(elec.eta())<elecEta_ && passID)
     {
       ++nelectrons;
-      if (elec.pt() > ptleade)
-        ptleade=elec.pt();
-
+      // Object Collections are always stored in descending Pt order //
+      if( nelectrons == 1 ) ptleade=elec.pt(); 
+      if( nelectrons == 2 ) ptlead2e=elec.pt();
+      //      if (elec.pt() > ptleade)
+      //        ptleade=elec.pt();
     }
   }
   if (debug_) cout <<"# Electrons = "<<nelectrons<<endl;
@@ -355,7 +360,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
   if (debug_) cout <<"# Taus = "<<ntaus<<endl;
 
-  if (customfilterEMuTauJet2012_==false)
+  if (customfilterEMuTauJet2012_==false && customfilterEMuTauJet2016_==false)
   {
     // If we require both electron and muon condition to be met, check electron here
     if (counteitherleptontype_==false)
@@ -391,8 +396,21 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
     if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
     if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
-    if ( ptleadmu > 43 || ptleade > 40 ) keepevent=true;
-    //std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+    if ( ptleadmu > 40 || ptleade > 40 ) keepevent=true;
+    if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+    if (keepevent==false) return false;
+  }
+ 
+  if (customfilterEMuTauJet2016_==true)
+  {
+    bool keepevent = false;
+    //if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
+    //if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
+    //if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
+    if ( ptleadmu > 40 || ptleade > 40 ) keepevent=true;
+    if ( ptleadmu > 10 && ptlead2mu > 10 && njets>1) keepevent=true;
+    if ( ptleade  > 10 && ptlead2e  > 10 && njets>1) keepevent=true;
+    if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
     if (keepevent==false) return false;
   }
   
