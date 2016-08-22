@@ -407,9 +407,9 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     //if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
     //if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
     //if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
-    if ( ptleadmu > 40 || ptleade > 40 ) keepevent=true;
-    if ( ptleadmu > 10 && ptlead2mu > 10 && njets>1) keepevent=true;
-    if ( ptleade  > 10 && ptlead2e  > 10 && njets>1) keepevent=true;
+    if ( ptleadmu > 45 || ptleade > 45 ) keepevent=true;
+    if ( ptleadmu > 15 && ptlead2mu > 8 && njets>1) keepevent=true;
+    if ( ptleade  > 15 && ptlead2e  > 10 && njets>1) keepevent=true;
     if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
     if (keepevent==false) return false;
   }
