@@ -41,6 +41,7 @@
 #include "DataFormats/PatCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/GeneratorProducts/interface/LHEEventProduct.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
@@ -82,14 +83,17 @@ class LeptonJetFilter : public edm::EDFilter {
       edm::EDGetTokenT<pat::TauCollection>      tauCollectionToken_;
       edm::EDGetTokenT<pat::MuonCollection>     muonCollectionToken_;
       edm::EDGetTokenT<pat::ElectronCollection> electronCollectionToken_;
+      edm::EDGetTokenT<reco::GenParticleCollection> genPartInputToken_;
+
       edm::EDGetTokenT<LHEEventProduct>    lheEventProductToken_;
 
-      int TotalCount;
-      int PassedCount;
-      int SumOfAMCAtNLOWeights;
+      float TotalCount;
+      float PassedCount;
+      float SumOfAMCAtNLOWeights;
+      float SumOfTopPtReweights;
 
       edm::Service<TFileService> histServ;
-      TH1I* hCount;
+      TH1F* hCount;
 };
 
 //
@@ -108,7 +112,8 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig) :
   jetCollectionToken_  (consumes<pat::JetCollection >(iConfig.getParameter<edm::InputTag>("jetLabel"))),
   tauCollectionToken_  (consumes<pat::TauCollection >(iConfig.getParameter<edm::InputTag>("tauLabel"))),
   muonCollectionToken_  (consumes<pat::MuonCollection >(iConfig.getParameter<edm::InputTag>("muLabel"))),
-  electronCollectionToken_  (consumes<pat::ElectronCollection >(iConfig.getParameter<edm::InputTag>("elecLabel")))
+  electronCollectionToken_  (consumes<pat::ElectronCollection >(iConfig.getParameter<edm::InputTag>("elecLabel"))),
+  genPartInputToken_ (consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genLabel")))
 {
    //now do what ever initialization is needed
 
@@ -158,11 +163,13 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig) :
   TotalCount=0;
   PassedCount=0;
   SumOfAMCAtNLOWeights=0;
+  SumOfTopPtReweights=0;
   TFileDirectory COUNT=histServ->mkdir("EventCount");
-  hCount=COUNT.make<TH1I>("EventCounter","Event Counter",3,-0.5,2.5);
+  hCount=COUNT.make<TH1F>("EventCounter","Event Counter",4,-0.5,3.5);
   hCount->GetXaxis()->SetBinLabel(1,"all events");
   hCount->GetXaxis()->SetBinLabel(2,"passed");
   hCount->GetXaxis()->SetBinLabel(3,"sumOfAmcAtNLOWeights");
+  hCount->GetXaxis()->SetBinLabel(4,"sumOfTopPtReweights");
 }
 
 
@@ -203,6 +210,57 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     if (EvtHandle->weights().size()>0)
       EvtHandle->weights()[0].wgt < 0 ? SumOfAMCAtNLOWeights-=1. : SumOfAMCAtNLOWeights+=1.;
   }
+
+  // get TopPt weights
+
+  if( !iEvent.isRealData() ) {
+    edm::Handle<reco::GenParticleCollection> genParticles;
+    iEvent.getByToken(genPartInputToken_, genParticles);
+    
+    if( genParticles.isValid() ) {
+      edm::LogInfo("LeptonJetFilterInfo") << "Total # GenParticles: " << genParticles->size();
+      
+      int nTops = 0;
+      float topPt1 = -1;
+      float topPt2 = -1;
+      int i=0;
+      for( reco::GenParticleCollection::const_iterator it = genParticles->begin(); it != genParticles->end(); ++it ) {
+        // exit from loop when you reach the required number of GenParticles
+	i++;
+	//if(i >= 50)
+        //  break;
+	
+        //skip LHC protons - pdgId=2212, extremely high eta, phi=0, energy ~= 6500
+        if(it->pdgId()==2212 && it->energy()>=6000) continue;
+        // actually let's skip any particle with huge eta
+        if(fabs(it->eta()) > 10) continue;
+        // skip pythia8 "partons in preparation of hadronization process"
+        // details here: http://home.thep.lu.se/~torbjorn/pythia81html/ParticleProperties.html
+        if(it->status() >= 71 && it->status()<=79) continue;
+	
+        // keep for topptreweight below
+        // see: https://twiki.cern.ch/twiki/bin/viewauth/CMS/TopPtReweighting
+        if(TMath::Abs(it->pdgId())==6){
+	  if( it->status()==62) {
+	    nTops++;
+	    if(topPt1<0)
+	      topPt1 = it->pt();
+	    else
+	      topPt2 = it->pt();
+	  }
+	}
+      }
+      // for topptreweight
+      if(nTops==2){
+        SumOfTopPtReweights += sqrt(exp(0.0615-0.0005*topPt1)*exp(0.0615-0.0005*topPt2));
+      }
+      else SumOfTopPtReweights += 1.;
+    } else {
+      edm::LogError("LeptonJetFilter") << "Error! Can't get the genPartInputToken_";
+    }
+  }
+  else SumOfTopPtReweights += 1.;
+  
 
   // get photons
   Handle<pat::PhotonCollection> photons;
@@ -434,7 +492,8 @@ LeptonJetFilter::endJob() {
   hCount->SetBinContent(1,TotalCount);
   hCount->SetBinContent(2,PassedCount);
   hCount->SetBinContent(3,SumOfAMCAtNLOWeights);
-  cout <<"Total events = "<<TotalCount<<"  Events Passed = "<<PassedCount<<"  Sum of amcatnlo weights = "<<SumOfAMCAtNLOWeights<<endl;
+  hCount->SetBinContent(4,SumOfTopPtReweights);
+  cout <<"Total events = "<<TotalCount<<"  Events Passed = "<<PassedCount<<"  Sum of amcatnlo weights = "<<SumOfAMCAtNLOWeights<<"  Sum of TopPt weights = "<<SumOfTopPtReweights<<endl;
 }
 
 //define this as a plug-in

@@ -7,6 +7,7 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     muLabel = cms.InputTag("slimmedMuons"),
     elecLabel = cms.InputTag("slimmedElectrons"),
     jetLabel = cms.InputTag("slimmedJets"),
+    genLabel = cms.InputTag("prunedGenParticles"),
 
     # Specifiy number of photons
     photMin = cms.int32(-1),
