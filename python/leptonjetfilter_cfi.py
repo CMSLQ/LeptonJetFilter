@@ -21,7 +21,7 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     # Specifiy number of jets
     jetsMin = cms.int32(-1),
     jetsMax = cms.int32(-1),
-    jetPT   = cms.double(20.),
+    jetPT   = cms.double(18.),
     jetEta  = cms.double(100.),
 
     # Specify number of muons
