@@ -14,7 +14,7 @@
 // Original Author:  Jeff Temple
 //         Created:  Mon Aug  3 13:02:30 CEST 2009
 // $Id: LeptonJetFilter.cc,v 1.14 2013/02/07 03:46:09 hsaka Exp $
-//         Modified February 10, 2015; Seth I. Cooper
+//         Modified January 10, 2018; David M. Morse
 //
 //
 
@@ -310,7 +310,9 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   // Step 1:  Count jets
   int njets=0;
+  int njets_IDed=0;
   float ptleadjet=0.0;
+  float highestJetbTagMVA = -999.;
 
   for(const pat::Jet &jet : *jets)
   {
@@ -321,6 +323,25 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
       ++njets;
       if(jet.pt() > ptleadjet)
         ptleadjet=jet.pt();
+      if(jet.bDiscriminator("pfCombinedMVAV2BJetTags") > highestJetbTagMVA)
+	highestJetbTagMVA = jet.bDiscriminator("pfCombinedMVAV2BJetTags");
+      bool looseJetID = false;
+      float eta = jet.eta();
+      float NHF = jet.neutralHadronEnergyFraction();
+      float NEMF = jet.neutralEmEnergyFraction();
+      float CEMF = jet.chargedEmEnergyFraction();
+      float CHF = jet.chargedHadronEnergyFraction();
+      //float MUF = jet.muonEnergyFraction();
+      float NumConst = jet.chargedMultiplicity()+jet.neutralMultiplicity();
+      float NumNeutralParticle = jet.neutralMultiplicity();
+      float CHM = jet.chargedMultiplicity();
+      if (abs(eta)<=2.7)
+	      looseJetID = ((NHF<0.99 && NEMF<0.99 && NumConst>1) && ((abs(eta)<=2.4 && CHF>0 && CHM>0 && CEMF<0.99) || abs(eta)>2.4) && abs(eta)<=2.7);
+      else if (abs(eta)<=3.0)
+	looseJetID = (NHF< 0.98 && NEMF>0.01 && NumNeutralParticle>2 && abs(eta)>2.7 && abs(eta)<=3.0 );
+      else
+	looseJetID = (NEMF<0.90 && NumNeutralParticle>10 && abs(eta)>3.0 && abs(eta)<5.0 );
+      if (looseJetID) ++njets_IDed;
     }
   }
 
@@ -374,7 +395,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   for(const pat::Electron &elec : *electrons)
   {
     if (debug_) cout << "Electron:" << endl;
-    if (debug_) cout << "pT: " << elec.pt() << " eta: " <<  elec.eta() << " phi: " <<  elec.phi() << endl;
+    if (debug_) cout << "pT: " << elec.pt() << " SC Eta: " <<  (*elec.superCluster()).eta() << " eta: "<< elec.eta() <<" phi: " <<  elec.phi() << endl;
     bool passID = true;
 
     if (useElecID_)
@@ -383,7 +404,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
         passID = false;
     }
 
-    if (elec.pt()>elecPT_ && fabs(elec.eta())<elecEta_ && passID)
+    if (elec.pt()>elecPT_ && fabs((*elec.superCluster()).eta())<elecEta_ && passID)
     {
       ++nelectrons;
       // Object Collections are always stored in descending Pt order //
@@ -465,11 +486,14 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
     //if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
     //if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
     //if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
-    if ( ptleadmu > 45 || ptleade > 45 ) keepevent=true;
-    if ( ptleadmu > 15 && ptlead2mu > 8  && njets>2 && ptleadjet>23 ) keepevent=true;
-    if ( ptleade  > 17 && ptlead2e  > 12 && njets>2 && ptleadjet>23 ) keepevent=true;
+    if ( (ptleadmu > 45 || ptleade > 45) && ptleadjet>45) keepevent=true;
+    if ( highestJetbTagMVA >= -0.5884){
+      if ( ptleadmu > 16 && ptlead2mu > 8  && njets_IDed>3) keepevent=true;
+      if ( ptleade  > 16 && ptlead2e  > 12 && njets_IDed>3) keepevent=true;
+    }
     if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
-    if (keepevent==false) return false;
+    //std::cout<<std::endl<<ptleade<<" : "<<ptlead2e<<std::endl<<ptleadmu<<" : "<<ptlead2mu<<std::endl<<njets<<" : "<<ptleadjet<<std::endl<<keepevent<<std::endl;
+   if (keepevent==false) return false;
   }
   
 
