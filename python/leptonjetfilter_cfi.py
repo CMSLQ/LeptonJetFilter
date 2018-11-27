@@ -53,7 +53,9 @@ LJFilter = cms.EDFilter('LeptonJetFilter',
     # If true, filter is true if either lepton condition met
     counteitherleptontype = cms.bool(True),
     customfilterEMuTauJet2012= cms.bool(False),
-    customfilterEMuTauJet2016= cms.bool(False)
+    customfilterEMuTauJet2016= cms.bool(False),
+    customfilterEMuTauJetLegacy  = cms.bool(False),
+    HHcustomfilterEMuTauJetLegacy= cms.bool(False)
 
 )
 

@@ -77,6 +77,8 @@ class LeptonJetFilter : public edm::EDFilter {
       bool counteitherleptontype_;
       bool customfilterEMuTauJet2012_;
       bool customfilterEMuTauJet2016_;
+      bool customfilterEMuTauJetLegacy_;
+      bool HHcustomfilterEMuTauJetLegacy_;
 
       edm::EDGetTokenT<pat::PhotonCollection>   photonCollectionToken_;
       edm::EDGetTokenT<pat::JetCollection>      jetCollectionToken_;
@@ -157,6 +159,8 @@ LeptonJetFilter::LeptonJetFilter(const edm::ParameterSet& iConfig) :
   counteitherleptontype_ = iConfig.getParameter<bool>("counteitherleptontype");
   customfilterEMuTauJet2012_ = iConfig.getParameter<bool>("customfilterEMuTauJet2012");
   customfilterEMuTauJet2016_ = iConfig.getParameter<bool>("customfilterEMuTauJet2016");
+  customfilterEMuTauJetLegacy_   = iConfig.getParameter<bool>("customfilterEMuTauJetLegacy");
+  HHcustomfilterEMuTauJetLegacy_ = iConfig.getParameter<bool>("HHcustomfilterEMuTauJetLegacy");
 
   lheEventProductToken_ = consumes<LHEEventProduct>(edm::InputTag("externalLHEProducer"));
 
@@ -312,7 +316,8 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   int njets=0;
   int njets_IDed=0;
   float ptleadjet=0.0;
-  float highestJetbTagMVA = -999.;
+  float highestJetbTagMVA  = -999.;
+  float highestJetbTagCISV = -999.;
 
   for(const pat::Jet &jet : *jets)
   {
@@ -325,6 +330,8 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
         ptleadjet=jet.pt();
       if(jet.bDiscriminator("pfCombinedMVAV2BJetTags") > highestJetbTagMVA)
 	highestJetbTagMVA = jet.bDiscriminator("pfCombinedMVAV2BJetTags");
+      if(jet.bDiscriminator("pfCombinedInclusiveSecondaryVertexV2BJetTags") > highestJetbTagCISV)
+	highestJetbTagCISV = jet.bDiscriminator("pfCombinedInclusiveSecondaryVertexV2BJetTags");
       bool looseJetID = false;
       float eta = jet.eta();
       float NHF = jet.neutralHadronEnergyFraction();
@@ -439,7 +446,7 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
   if (debug_) cout <<"# Taus = "<<ntaus<<endl;
 
-  if (customfilterEMuTauJet2012_==false && customfilterEMuTauJet2016_==false)
+  if (customfilterEMuTauJet2012_==false && customfilterEMuTauJet2016_==false && customfilterEMuTauJetLegacy_==false && HHcustomfilterEMuTauJetLegacy_==false)
   {
     // If we require both electron and muon condition to be met, check electron here
     if (counteitherleptontype_==false)
@@ -483,14 +490,32 @@ LeptonJetFilter::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   if (customfilterEMuTauJet2016_==true)
   {
     bool keepevent = false;
-    //if ( ptleadmu > 25 && ptleadtau > 20 ) keepevent=true;
-    //if ( ptleadmu > 25 && ptlead2mu > 25 ) keepevent=true;
-    //if ( ptleadmu > 20 && ptlead2mu > 10 && isSameSignMuon_ ) keepevent=true; // 1 same-sign muon pair is required.
     if ( (ptleadmu > 45 || ptleade > 45) && ptleadjet>45) keepevent=true;
-    if ( highestJetbTagMVA >= -0.5884){
-      if ( ptleadmu > 16 && ptlead2mu > 8  && njets_IDed>3) keepevent=true;
-      if ( ptleade  > 16 && ptlead2e  > 12 && njets_IDed>3) keepevent=true;
-    }
+    if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+    //std::cout<<std::endl<<ptleade<<" : "<<ptlead2e<<std::endl<<ptleadmu<<" : "<<ptlead2mu<<std::endl<<njets<<" : "<<ptleadjet<<std::endl<<keepevent<<std::endl;
+   if (keepevent==false) return false;
+  }
+  
+
+  if (customfilterEMuTauJetLegacy_==true)
+  {
+    bool keepevent = false;
+    if ( (ptleadmu > 45 || ptleade > 45) && ptleadjet>45) keepevent=true;
+    if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
+    //std::cout<<std::endl<<ptleade<<" : "<<ptlead2e<<std::endl<<ptleadmu<<" : "<<ptlead2mu<<std::endl<<njets<<" : "<<ptleadjet<<std::endl<<keepevent<<std::endl;
+   if (keepevent==false) return false;
+  }
+  
+
+
+  if (HHcustomfilterEMuTauJetLegacy_==true)
+  {
+    bool keepevent = false;
+    //if ( highestJetbTagMVA >= -0.5884 || highestJetbTagCISV >= 0.5426){
+    if ( ptleadmu > 16 && ptlead2mu > 8  && njets_IDed>3) keepevent=true;
+    if ( ptleade  > 16 && ptlead2e  > 12 && njets_IDed>3) keepevent=true;
+    // keepevent=true;
+    //}
     if (debug_) std::cout<<ptleade<<" : "<<ptleadmu<<" : "<<ptleadtau<<" : "<<ptleadjet<<std::endl;
     //std::cout<<std::endl<<ptleade<<" : "<<ptlead2e<<std::endl<<ptleadmu<<" : "<<ptlead2mu<<std::endl<<njets<<" : "<<ptleadjet<<std::endl<<keepevent<<std::endl;
    if (keepevent==false) return false;
